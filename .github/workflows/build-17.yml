@@ -1,0 +1,45 @@
+name: build-potter
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu bc bison flex libssl-dev \
+            device-tree-compiler zip python3 make wget git rsync
+      - uses: actions/checkout@v4
+      - name: source
+        run: |
+          git clone --depth 1 -b lineage-17.1 \
+            https://github.com/LineageOS/android_kernel_motorola_msm8953.git ksrc
+          cd ksrc; head -4 Makefile
+      - name: patches
+        run: |
+          cd ksrc
+          python3 "$GITHUB_WORKSPACE/scripts/patch.py"
+      - name: build
+        run: |
+          cd ksrc
+          export ARCH=arm64 SUBARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          make potter_defconfig
+          make -j"$(nproc)" Image.gz 2>&1 | tail -40
+      - name: artifact
+        run: |
+          set -x
+          find ksrc/arch/arm64/boot -maxdepth 1 -name 'Image*' -exec ls -la {} \;
+          mkdir -p out
+          cp ksrc/arch/arm64/boot/Image.gz out/ 2>/dev/null || true
+          cp ksrc/arch/arm64/boot/Image.gz-dtb out/ 2>/dev/null || true
+          ls -la out; md5sum out/* || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: potter-kernel
+          path: out/*
+          if-no-files-found: error

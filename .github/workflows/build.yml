@@ -1,40 +1,79 @@
-name: build
+name: potter-kernel
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
+
 jobs:
   build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 150
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+
       - name: deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq build-essential bc bison flex libssl-dev \
-            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf \
+            bc bison flex libssl-dev libelf-dev rsync
+
       - name: source
         run: |
-          git clone --depth 1 -b lineage-17.1 \
-            https://github.com/LineageOS/android_kernel_motorola_msm8953.git ksrc
+          set -e
+          BR=lineage-17.1
+          git clone --depth 1 -b $BR https://github.com/LineageOS/android_kernel_motorola_msm8953.git ksrc
+          test -f ksrc/arch/arm64/configs/potter_defconfig || { echo "SEM potter_defconfig"; exit 1; }
+          echo "kernel: $(make -s -C ksrc kernelversion)"
+
+      - name: fix-hostbuild
+        run: |
+          set -e
+          cd ksrc
+          # gcc 12+ usa -fno-common por padrao: yylloc duplica no dtc.
+          # forca -fcommon no Makefile raiz (tolera espacos antes do =)
+          sed -i -E 's/^HOSTCFLAGS[[:space:]]*=/HOSTCFLAGS = -fcommon /' Makefile
+          sed -i -E 's/^HOSTCXXFLAGS[[:space:]]*=/HOSTCXXFLAGS = -fcommon /' Makefile
+          sed -i 's/-fno-common//g' Makefile scripts/Makefile* 2>/dev/null || true
+          grep -n '^HOSTCFLAGS' Makefile
+
       - name: patches
         run: |
-          cd ksrc
-          python3 "$GITHUB_WORKSPACE/scripts/patch.py"
+          set -e
+          if [ -f scripts/patch.py ]; then
+            python3 scripts/patch.py ksrc
+          else
+            echo "sem patch.py"
+          fi
+
       - name: build
         run: |
           set -euo pipefail
-          cd ksrc
-          export ARCH=arm64 SUBARCH=arm64
+          export ARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabihf-
-          export HOSTCFLAGS="-fcommon -w"
-          make O=out potter_defconfig
-          make O=out -j"$(nproc)" Image.gz-dtb
-          ls -la out/arch/arm64/boot/
+          export KBUILD_BUILD_USER=token
+          export KBUILD_BUILD_HOST=potter
+          cd ksrc
+          make potter_defconfig
+          make -j"$(nproc)" Image.gz-dtb > build.log 2>&1 || {
+            echo "=== FALHOU, ultimas 80 linhas ==="
+            tail -80 build.log
+            exit 1
+          }
+          tail -20 build.log
+          test -f arch/arm64/boot/Image.gz-dtb
+          ls -la arch/arm64/boot/Image.gz-dtb
+          md5sum arch/arm64/boot/Image.gz-dtb
+
+      - name: artifact
+        run: |
+          set -e
+          mkdir -p out
+          cp ksrc/arch/arm64/boot/Image.gz-dtb out/
+          cp ksrc/.config out/potter_config.txt
+          md5sum out/*
+
       - uses: actions/upload-artifact@v4
         with:
-          name: potter-Image
-          path: ksrc/out/arch/arm64/boot/Image.gz-dtb
+          name: Image.gz-dtb
+          path: out/*
           if-no-files-found: error

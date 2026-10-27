@@ -1,47 +1,46 @@
-name: build
-on: [push, workflow_dispatch]
+name: build-potter
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
       - name: deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq bc bison flex libssl-dev \
-            gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu \
-            device-tree-compiler zip
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi \
+            bc bison flex libssl-dev device-tree-compiler zip python3 make wget git rsync
+      - uses: actions/checkout@v4
       - name: source
         run: |
           git clone --depth 1 -b lineage-17.1 \
             https://github.com/LineageOS/android_kernel_motorola_msm8953.git ksrc
+          cd ksrc; head -4 Makefile
       - name: patches
         run: |
           cd ksrc
-          for p in ../patches/*.patch; do
-            [ -e "$p" ] || continue
-            echo "== $p"
-            patch -p1 --no-backup-if-mismatch < "$p" || exit 1
-          done
+          python3 "$GITHUB_WORKSPACE/scripts/patch.py"
       - name: build
         run: |
-          set -euo pipefail
           cd ksrc
           export ARCH=arm64 SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
-          export CROSS_COMPILE_ARM32=arm-linux-gnueabihf-
-          make O=out potter_defconfig
-          make O=out -j"$(nproc)" Image.gz-dtb 2>&1 | tail -60
-          ls -la out/arch/arm64/boot/
+          export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+          make potter_defconfig
+          make -j"$(nproc)" Image.gz-dtb 2>&1 | tail -60
       - name: artifact
         run: |
-          mkdir -p artifacts
-          cp ksrc/out/arch/arm64/boot/Image.gz-dtb artifacts/ 2>/dev/null || true
-          cp ksrc/out/arch/arm64/boot/Image.gz  artifacts/ 2>/dev/null || true
-          cp ksrc/out/arch/arm64/boot/Image     artifacts/ 2>/dev/null || true
-          ls -la artifacts; md5sum artifacts/* || true
+          set -x
+          find ksrc/arch/arm64/boot -maxdepth 2 -name 'Image*' -exec ls -la {} \;
+          mkdir -p out
+          cp ksrc/arch/arm64/boot/Image.gz-dtb out/ 2>/dev/null || true
+          cp ksrc/arch/arm64/boot/Image.gz out/ 2>/dev/null || true
+          ls -la out; md5sum out/* || true
       - uses: actions/upload-artifact@v4
         with:
           name: potter-kernel
-          path: artifacts/*
+          path: out/*
           if-no-files-found: error

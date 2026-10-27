@@ -1,0 +1,49 @@
+name: build-potter
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu bc bison flex libssl-dev \
+            device-tree-compiler zip python3 make wget git rsync
+      - name: source
+        run: |
+          git clone --depth 1 -b arrow-9.x \
+            https://github.com/ArrowOS-Devices/android_kernel_motorola_msm8953.git ksrc
+      - name: info
+        run: |
+          cd ksrc
+          head -5 Makefile
+          ls arch/arm64/configs/potter_defconfig
+      - name: patches
+        run: |
+          cd ksrc
+          for f in ../patches/*.patch; do
+            [ -e "$f" ] || continue
+            echo "== aplicando $f"
+            patch -p1 --forward < "$f" || echo "falhou/ja aplicado: $f"
+          done
+      - name: build
+        run: |
+          cd ksrc
+          export ARCH=arm64 SUBARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          make potter_defconfig
+          make -j"$(nproc)" Image.gz-dtb 2>&1 | tail -60
+      - name: artifact
+        run: |
+          mkdir -p out
+          cp ksrc/arch/arm64/boot/Image.gz-dtb out/ 2>/dev/null || cp ksrc/arch/arm64/boot/Image.gz out/
+          ls -la out
+          md5sum out/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Image.gz-dtb
+          path: out/*

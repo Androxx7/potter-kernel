@@ -5143,3 +5143,7 @@ CONFIG_ARCH_HAS_SG_CHAIN=y
 CONFIG_QMI_ENCDEC=y
 # CONFIG_QMI_ENCDEC_DEBUG is not set
 # CONFIG_STRICT_MEMORY_RWX is not set
+
+# compressao XZ do kernel (cabe na boot de 16MB)
+CONFIG_KERNEL_XZ=y
+# CONFIG_KERNEL_GZIP is not set

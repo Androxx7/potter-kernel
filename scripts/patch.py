@@ -1,5 +1,5 @@
 import pathlib, sys
-root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "ksrc").resolve()
+root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
 print("root:", root)
 ok = []
 

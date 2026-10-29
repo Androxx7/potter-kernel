@@ -67,15 +67,15 @@ jobs:
             exit 1
           }
           tail -20 build.log
-          test -f arch/arm64/boot/Image.gz-dtb
-          ls -la arch/arm64/boot/Image.gz-dtb
-          md5sum arch/arm64/boot/Image.gz-dtb
+          test -f out/arch/arm64/boot/Image.gz-dtb
+          ls -la out/arch/arm64/boot/Image.gz-dtb
+          md5sum out/arch/arm64/boot/Image.gz-dtb
 
       - name: artifact
         run: |
           set -e
           mkdir -p out
-          cp ksrc/arch/arm64/boot/Image.gz-dtb out/
+          cp ksrc/out/arch/arm64/boot/Image.gz-dtb out/
           cp ksrc/.config out/potter_config.txt
           md5sum out/*
 

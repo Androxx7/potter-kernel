@@ -21,7 +21,7 @@ jobs:
           set -e
           BR=lineage-17.1
           git clone --depth 1 -b $BR https://github.com/LineageOS/android_kernel_motorola_msm8953.git ksrc
-          test -f ksrc/arch/arm64/configs/potter_atual_defconfig || { echo "SEM potter_atual_defconfig"; exit 1; }
+          test -f configs/potter_atual_defconfig || { echo "SEM potter_atual_defconfig"; exit 1; }
           echo "kernel: $(make -s -C ksrc kernelversion)"
 
       - name: fix-hostbuild

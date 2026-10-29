@@ -21,7 +21,7 @@ jobs:
           set -e
           BR=lineage-17.1
           git clone --depth 1 -b $BR https://github.com/LineageOS/android_kernel_motorola_msm8953.git ksrc
-          test -f ksrc/arch/arm64/configs/potter_defconfig || { echo "SEM potter_defconfig"; exit 1; }
+          test -f ksrc/arch/arm64/configs/potter_atual_defconfig || { echo "SEM potter_atual_defconfig"; exit 1; }
           echo "kernel: $(make -s -C ksrc kernelversion)"
 
       - name: fix-hostbuild
@@ -55,8 +55,8 @@ jobs:
           cd ksrc
           # gcc 12+ acusa -Werror em codigo de 2018 (maybe-uninitialized).
           # desliga -Werror global: sao warnings, nao bugs do patch.
-          scripts/config --file arch/arm64/configs/potter_defconfig -d CONFIG_WERROR 2>/dev/null || true
-          make potter_defconfig
+          scripts/config --file arch/arm64/configs/potter_atual_defconfig -d CONFIG_WERROR 2>/dev/null || true
+          cp "$GITHUB_WORKSPACE/configs/potter_atual_defconfig" arch/arm64/configs/ && make potter_atual_defconfig
           sed -i 's/-Werror/-Wno-error/g' Makefile
           sed -i 's/-Werror/-Wno-error/g' scripts/Makefile*  2>/dev/null || true
           KCFLAGS="-Wno-error -Wno-maybe-uninitialized -Wno-uninitialized" \

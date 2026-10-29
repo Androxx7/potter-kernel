@@ -61,26 +61,26 @@ jobs:
           sed -i 's/-Werror/-Wno-error/g' scripts/Makefile*  2>/dev/null || true
           KCFLAGS="-Wno-error -Wno-maybe-uninitialized -Wno-uninitialized" \
           sed -i "s/-Wno-error-implicit-function-declaration/-Wno-error=implicit-function-declaration/g" Makefile scripts/Makefile* 2>/dev/null || true
-          make -j"$(nproc)" Image.gz-dtb > build.log 2>&1 || {
+          make -j"$(nproc)" Image.xz-dtb > build.log 2>&1 || {
             echo "=== FALHOU, ultimas 80 linhas ==="
             tail -80 build.log
             exit 1
           }
           tail -20 build.log
-          test -f out/arch/arm64/boot/Image.gz-dtb
-          ls -la out/arch/arm64/boot/Image.gz-dtb
-          md5sum out/arch/arm64/boot/Image.gz-dtb
+          test -f out/arch/arm64/boot/Image.xz-dtb
+          ls -la out/arch/arm64/boot/Image.xz-dtb
+          md5sum out/arch/arm64/boot/Image.xz-dtb
 
       - name: artifact
         run: |
           set -e
           mkdir -p out
-          cp ksrc/out/arch/arm64/boot/Image.gz-dtb out/
+          cp ksrc/out/arch/arm64/boot/Image.xz-dtb out/
           cp ksrc/out/.config out/potter_config.txt
           md5sum out/*
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Image.gz-dtb
+          name: Image.xz-dtb
           path: out/*
           if-no-files-found: error

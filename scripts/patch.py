@@ -39,3 +39,18 @@ rep("drivers/regulator/cpr3-regulator.c",
 for t in ok:
     print("OK:", t)
 print("TOTAL:", len(ok))
+
+import os
+n = 0
+for dp, dn, fns in os.walk(root):
+    for fn in fns:
+        if fn.startswith("Makefile"):
+            p = os.path.join(dp, fn)
+            try:
+                s = open(p).read()
+            except Exception:
+                continue
+            if "-Wno-error-implicit-function-declaration" in s:
+                open(p, "w").write(s.replace("-Wno-error-implicit-function-declaration", "-Wno-error=implicit-function-declaration"))
+                n += 1
+print("makefiles corrigidos:", n)
